@@ -1,0 +1,183 @@
+	void initConnections(int imageX, int imageY){
+		struct boxPos{
+			int startX;
+			int startY;
+			int endX;
+			int endY;
+		};
+		boxPos pos;
+
+		pos.endX = 0;
+		pos.endY = 0;
+		pos.startX = 0;
+		pos.startY = 0;
+		int featureMapCount = 0;
+
+		int count = 0;
+		int yCount = 0;
+		int xCount = 0;
+		int numIterationsCompletedCount = 0;
+
+		int actualPos;
+		int pixelLocation = 0;
+		while (pos.endY < imageY){
+			y_count++;
+			x_count = 0;
+
+			pos.startY = (move)*(yCount);
+			pos.endY = yCount*(move)+mapSize;
+
+
+			if(pos.endY >= imageY){
+				pos.endY = imageY;
+				pos.startY = pos.endY-mapSize;
+			}
+			while(pos.endX < imageX){
+
+				x_count++;
+				pos.startX = (move)*(xCount);
+				pos.endX = xCount*(move)+mapSize;
+
+				if(pos.endX >= imageX){
+					pos.endX = imageX;
+					pos.startX = pos.endX-mapSize;
+				}
+
+				xCount++;
+
+
+				for (int k = pos.startY; k<pos.endY; k++){
+					for (int l = pos.startX; l<pos.endX; l++){
+						actualPos = (k)*imageX+l;
+
+
+						for (int i = 1; i< (numNeurons); i+=(numNeurons/numOfMaps)){
+
+							if(numIterationsCompletedCount+i-1>0){
+
+								neurons[numIterationsCompletedCount+i-1].featureMapID = featureMapCount;
+								neurons[numIterationsCompletedCount+i-1].giveInputConnection(actualPos);
+								neurons[numIterationsCompletedCount+i-1].inputWeightID.push_back(pixelLocation);
+
+								count++;
+							}else{
+								//	neurons[0].setMapID(count);
+								neurons[0].featureMapID = featureMapCount;
+								neurons[0].giveInputConnection(actualPos);
+								neurons[0].inputWeightID.push_back(pixelLocation);
+
+								count++;
+							}
+							featureMapCount++;
+						}
+						featureMapCount = 0;
+						count = 0;
+						pixelLocation++;
+						pixelLocation %= mapSize;
+					}
+
+				}	
+				numIterationsCompletedCount++;
+				pixelLocation = 0;
+
+
+			}
+			pos.startX = 0;
+			pos.endX = 0;
+			xCount = 0;
+			yCount++;
+
+
+		}
+		xCount = 0;
+		yCount = 0;
+
+		pos.startX = 0;
+		pos.startY = 0;
+		pos.endX = 0;
+		pos.endY = 0;
+
+		numIterationsCompletedCount = 0;
+		pixelLocation = 0;
+		cout << x_count << " "<<y_count <<" "<<mapSize << " "<< move<< endl;
+	}
+
+	int * testConnections(int imageX, int imageY, int move, int mapSize){
+		struct boxPos{
+			int startX;
+			int startY;
+			int endX;
+			int endY;
+		};
+		boxPos pos;
+
+		int x_count = 0;
+		int y_count = 0;
+		pos.endX = 0;
+		pos.endY = 0;
+		pos.startX = 0;
+		pos.startY = 0;
+		int featureMapCount = 0;
+
+		int count = 0;
+		int yCount = 0;
+		int xCount = 0;
+		int numIterationsCompletedCount = 0;
+
+		int actualPos;
+		int pixelLocation = 0;
+		while (pos.endY < imageY){
+			y_count++;
+			x_count = 0;
+
+			pos.startY = (move)*(yCount);
+			pos.endY = yCount*(move)+mapSize;
+
+
+			if(pos.endY >= imageY){
+				pos.endY = imageY;
+				pos.startY = pos.endY-mapSize;
+			}
+			while(pos.endX < imageX){
+
+				x_count++;
+				pos.startX = (move)*(xCount);
+				pos.endX = xCount*(move)+mapSize;
+
+				if(pos.endX >= imageX){
+					pos.endX = imageX;
+					pos.startX = pos.endX-mapSize;
+				}
+
+				xCount++;
+				for (int k = pos.startY; k<pos.endY; k++){
+					for (int l = pos.startX; l<pos.endX; l++){
+						actualPos = (k)*imageX+l;
+
+
+						featureMapCount = 0;
+						count = 0;
+						pixelLocation++;
+					}
+
+				}	
+				numIterationsCompletedCount++;
+				pixelLocation = 0;
+
+			}
+			pos.startX = 0;
+			pos.endX = 0;
+			xCount = 0;
+			yCount++;
+
+		}
+
+
+
+		cout << x_count << "  " << y_count << endl;
+		int counts[2];
+		counts[0] = x_count;
+		counts[1] = y_count;
+		return counts;
+
+	}

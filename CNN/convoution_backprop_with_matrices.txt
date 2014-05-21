@@ -1,0 +1,76 @@
+	float ** outputs;
+						outputs = new float *[layers[n].y_count];
+						for(int i = 0; i<layers[n].y_count; i++){
+							outputs[i] = new float[layers[n].x_count];
+						}
+						int offset;
+						int actualPos;
+						double ** derivative;
+						derivative = new double*[layers[n].y_count];
+						for(int i = 0; i<layers[n].y_count; i++){
+							derivative[i] = new double [layers[n].x_count];
+						}
+						int numNeuron = layers[n].numNeurons/layers[n].numOfMaps;
+						for(int i = 0; i<layers[n].numOfMaps; i++){
+							offset = i*numNeuron;
+
+							//this is where i left off. to continue, i need to implement the gradient calculator for a subsampling layer
+							//i also need to set outputs equal to delta, but take care to make sure i dont get any errors with pointers.
+
+
+							upsample(layers[n+1].deltas[i], layers[n+1].x_count, layers[n+1].y_count, 2, outputs);
+
+
+
+							for(int j = 0; j<layers[n].y_count; j++){
+								for(int k = 0; k<layers[n].x_count; k++){
+									actualPos = (j)*layers[n].x_count+k+offset;
+									derivative[j][k] = layers[n].neurons[actualPos].output * (1- layers[n].neurons[actualPos].output);
+								}
+							}
+
+							matrix_matrix_multiply(layers[n].x_count, layers[n].y_count, outputs, derivative);
+
+							multiply(layers[n+1].data[i].weights[0][0], outputs, layers[n].x_count, layers[n].y_count);
+
+							for(int j = 0; j<layers[n].y_count; j++){
+								for(int k = 0; k<layers[n].x_count; k++){
+									layers[n].deltas[i][j][k] = outputs[j][k];
+								}
+							}
+
+
+							for(int j = 0; j<layers[n].y_count; j++){
+								for(int k = 0; k<layers[n].x_count; k++){
+									layers[n].data[i].bias += layers[n].deltas[i][j][k]*learningRate;
+
+								}
+							}
+int count = 0;
+
+						for(int i = 0; i<layers[n].numOfMaps; i++){
+							for(int j = 0; j<layers[n].y_count; j++){
+								for(int k = 0; k<layers[n].x_count; k++){
+									layers[n].neurons[count].delta = layers[n].deltas[i][j][k];
+									count++;
+								}
+							}
+						}
+
+						int deltas_xpos = 0, deltas_ypos = 0, weight = 0, size= 0, previousLayerID, mapID, ID, test;
+						size = layers[n].mapSize;
+						for(int i = 0; i<layers[n].numNeurons; i++){
+
+							mapID = layers[n].neurons[i].featureMapID;
+							ID = i-(mapID*(layers[n].numNeurons/layers[n].numOfMaps));
+							deltas_xpos = ID%layers[n].x_count;
+							deltas_ypos = ID/layers[n].y_count;
+
+							for(int j = 0; j<layers[n].neurons[i].inputs.size(); j++){
+								previousLayerID = layers[n].neurons[i].inputs[j];
+								layers[n].data[mapID].weights[weight%size][weight/size] += learningRate * layers[n].deltas[mapID][deltas_ypos][deltas_xpos]*layers[n-1].neurons[previousLayerID].output;
+								weight++;
+								weight %= size*size;
+							}
+						}
+					}

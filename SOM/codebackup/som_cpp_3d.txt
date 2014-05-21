@@ -1,0 +1,175 @@
+// SOM.cpp : Defines the entry point for the console application.
+//
+
+#include "stdafx.h"
+using namespace std;
+
+
+
+
+void write_to_file(SOM network){
+	BMP final;
+	final.SetSize(50, 50);
+	for (int i = 0; i<network.mapWidth; i++){
+		for(int j =0; j<network.mapHeight; j++){
+			RGBApixel temp;
+			temp.Red = network.neurons[i][j][0].weights[0]*256;
+			temp.Blue = network.neurons[i][j][1].weights[1]*256;
+			temp.Green = network.neurons[i][j][2].weights[2]*256;
+			temp.Alpha = 0;
+			final.SetPixel(i, j, temp);
+		}
+	}
+	final.WriteToFile("first_1.bmp");
+	for (int i = 0; i<network.mapWidth; i++){
+		for(int j =0; j<network.mapHeight; j++){
+			RGBApixel temp;
+			temp.Red = network.neurons[i][j][1].weights[0]*256;
+			temp.Blue = network.neurons[i][j][1].weights[1]*256;
+			temp.Green = network.neurons[i][j][1].weights[2]*256;
+			temp.Alpha = 0;
+			final.SetPixel(i, j, temp);
+		}
+	}
+	final.WriteToFile("first_2.bmp");
+	for (int i = 0; i<network.mapWidth; i++){
+		for(int j =0; j<network.mapHeight; j++){
+			RGBApixel temp;
+			temp.Red = network.neurons[i][j][2].weights[0]*256;
+			temp.Blue = network.neurons[i][j][2].weights[1]*256;
+			temp.Green = network.neurons[i][j][2].weights[2]*256;
+			temp.Alpha = 0;
+			final.SetPixel(i, j, temp);
+		}
+	}
+	final.WriteToFile("first_3.bmp");
+}
+
+string int_to_str(int i){
+	stringstream ss;
+	ss << i;
+	string str = ss.str();
+	return str;
+}
+
+struct boxPos{
+	int startX;
+	int startY;
+	int endX;
+	int endY;
+};
+int main(int argc, char* argv[])
+{
+
+SOM network(50, 50, 3, 3);
+
+	BMP *output;
+
+	BMP input;
+	input.ReadFromFile("images/chop.bmp");
+	int imageX = 24;
+	int imageY = 23;
+	boxPos pos;
+	pos.endX = 0;
+	pos.endY = 0;
+	int count3 = 0;
+	pos.startX = 0;
+	pos.startY = 0;
+	int count1 = 0;
+	int move = 4;
+	int dim = 5;
+	output = new BMP[36];
+	int xCount = 0;
+	int yCount = 0;
+	int count = 0;
+	while (pos.endY < imageY){
+		
+		int xCount = 0;
+		int yCount = 0;
+		if (count1  ==0) pos.startY = 0;
+		else pos.startY = (move)*(count1-1)+4;
+		pos.endY = count1*(move)+dim;
+		if(pos.endY > imageY){
+			pos.endY = imageY;
+			pos.startY = pos.endY-5;
+		}
+		while(pos.endX < imageX){
+			int xCount = 0;
+			int yCount = 0;
+			if (count ==0) pos.startX = 0;
+			else pos.startX = (move)*(count-1)+4;
+			pos.endX = count*(move)+dim;
+			if(pos.endX > imageX){
+				pos.endX = imageX;
+				pos.startX = pos.endX-5;
+			}
+			//cout << pos.startX << "   " << pos.endX << "    " << pos.startY << "    " << pos.endY << endl;
+			count++;
+			output[count3].SetSize(5, 5);
+			cout << count3 << endl;
+			for (int k = pos.startY; k<pos.endY; k++){
+				for (int l = pos.startX; l<pos.endX; l++){
+
+
+					RGBApixel temp;
+					temp.Red = input(l, k)->Red;
+					temp.Green = input(l, k)->Green;
+					temp.Blue = input(l, k)->Blue;
+
+					temp.Alpha = 1;
+
+					output[count3].SetPixel(xCount, yCount, temp);
+					string num = int_to_str(count3);
+					string filename = "output/"+num+".bmp";
+					output[count3].WriteToFile(filename.c_str());
+					xCount++;
+
+				}
+				xCount = 0;
+				yCount++;
+			}
+			count3++;
+		}
+		pos.startX = 0;
+		pos.endX = 0;
+		count = 0;
+		count1++;
+
+	}
+	
+	//BMP * output;
+	//output = new BMP[imageX*imageY];
+
+	//write_to_file(network);
+
+	cout << "done"<<  "   "<< count1 << endl;
+	float ** data;
+	data = new float*[11];
+	for (int i = 0; i<11; i++){
+		data[i] = new float[3];
+	}
+	ifstream dat;
+	dat.open("data.txt");
+	for (int i = 0; i<11; i++){
+		float red;
+		dat>>red;
+		float blue;
+		dat>>blue;
+		float green;
+		dat>>green;
+		float magnitude = sqrt(red*red+green*green+blue*blue);
+		if(magnitude != 0){
+			data[i][0] = red/magnitude;
+			data[i][1] = blue/magnitude;
+			data[i][2] = green/magnitude;
+		}
+		else{
+			data[i][0] = 0;
+			data[i][1] = 0;
+			data[i][2] = 0;
+		}
+	}
+	network.train(data, 11);
+	write_to_file(network);
+	return 0;
+}

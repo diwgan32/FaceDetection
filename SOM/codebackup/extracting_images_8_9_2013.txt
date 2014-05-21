@@ -1,0 +1,47 @@
+int imageX = 24;
+	int imageY = 13;
+	vector<BMP> output;
+	BMP input;
+	//BMP * output;
+	//output = new BMP[imageX*imageY];
+	
+	//write_to_file(network);
+	int count = 0;
+	input.ReadFromFile("images/chop.bmp");
+	int test = input(1, 0)->Red;
+	cout << test << endl;
+	for(int i = 0; i<2; i++){
+		for(int j = 0; j<3;j++){
+			int xCount = 0;
+			int yCount = 0;
+			int xPos = i*4;
+			int yPos = j*4;
+			int xPos1 = xPos+3;
+			int yPos1 = yPos+3;
+			output[count].SetSize(4, 4);
+			cout << i << " " << j << " " << endl;
+			for (int k = yPos; k<=yPos1; k++){
+				for (int l = xPos; l<=xPos1; l++){
+					
+					
+					RGBApixel temp;
+					temp.Red = input(l, k)->Red;
+					temp.Green = input(l, k)->Green;
+					temp.Blue = input(l, k)->Blue;
+					temp.Alpha = 1;
+					output[count].SetPixel(xCount, yCount, temp);
+					xCount++;	
+				}
+				xCount = 0;
+				yCount++;
+			}
+		count++;
+		xPos = 0;
+		yPos = 0;
+		}
+	}
+	for(int i = 0; i<6 ; i++){
+		string str = int_to_str(i);
+		string final = "output/test"+str+".bmp";
+		output[i].WriteToFile(final.c_str());
+	}

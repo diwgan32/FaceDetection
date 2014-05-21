@@ -1,0 +1,1063 @@
+#ifndef CNN_H
+#define CNN_H
+using namespace std;
+class Neuron{
+public:
+	vector<int> inputs;
+	vector<int> inputWeightID;
+	vector<int> outputs;
+	vector<int> outputWeightID;
+	double expected;
+	double bias; //used to propagate
+	double input; // input of the neuron
+	double errorFactor; //error factor, used in backprop
+	double delta; //used in backprop
+	int numInputs; //The number of inputs to the neuron, used in for loops
+	double output; // output of the neuron
+	int numOutputs;
+	int featureMapID;
+	Neuron(){
+		output = 0.0f;
+		numInputs = 0;
+		numOutputs = 0;
+		delta = 0.0f;
+
+
+		bias = ((double)rand()/RAND_MAX)*(.01);
+
+		errorFactor = 0.0f;
+		input = 0.0f;
+		expected = 0.3f;
+		featureMapID = 0;
+	}
+	void giveInputConnection(int connect){
+		inputs.push_back(connect);
+	}
+	void setMapID(int ID){
+		featureMapID = ID;
+	}
+
+};
+
+class Weights{
+public:
+	double ** weights;
+	string type;
+	//the bias property is only used if we are at a convolution layer
+	//if we are at a subsampling layer, then the weights array's second column are biases
+	double bias;
+
+	Weights(int mapX, int mapY, string type1, int num_inputs){
+		float num  = 2.5;
+		int flag = 0;
+		if(type1 == "s"){
+			//mapX doesnt matter if we are at a subsampling layer
+			weights = new double*[1];
+			weights[0] = new double[1];
+			type = type1;
+
+
+
+			weights[0][0] = ((double)rand()/RAND_MAX)*(1/(double)num_inputs)*num;
+			flag = rand()%100;
+			if(flag%2==0){
+				bias= ((double)rand()/RAND_MAX)*(1/(double)num_inputs)*num;
+			}else{
+				bias = -((double)rand()/RAND_MAX)*(1/(double)num_inputs)*num;
+			} 
+
+
+		}
+		if(type1 == "c"){
+
+			type = type1;
+			weights = new double*[mapX];
+
+			for(int i = 0; i<mapX; i++){
+				weights[i] = new double[mapY];
+
+			}
+
+
+
+			flag = rand()%100;
+			if(flag%2==0){
+				bias =((double)rand()/RAND_MAX)*(1/(double)num_inputs)*num;
+			}else{
+				bias = -((double)rand()/RAND_MAX)*(1/(double)num_inputs)*num;
+			}
+			for(int i = 0; i<mapX; i++){
+				for(int j = 0; j<mapY; j++){
+					flag = rand()%100;
+
+					if(flag%2==0){
+						weights[i][j] =((double)rand()/RAND_MAX)*(1/(double)num_inputs)*num;
+					}else{
+						weights[i][j] = -((double)rand()/RAND_MAX)*(1/(double)num_inputs)*num;
+					}
+				}
+			}
+		}else if (type1 == "r"){
+			type = type1;
+			weights = new double*[mapX];
+			for(int k = 0; k<mapX; k++){
+				weights[k] = new double[mapY];
+
+			}
+			for(int i = 0; i<mapX; i++){
+				for(int j = 0; j<mapY; j++){
+
+
+
+					flag = rand()%100;
+					if(flag%2==0){
+						weights[i][j] = ((double)rand()/RAND_MAX)*.1;
+					}else{
+						weights[i][j] = -((double)rand()/RAND_MAX)*.1;
+					}
+				}
+			}
+		}
+
+	}
+	Weights(){
+	}
+};
+class NeuronLayer{
+private:
+	string type;
+public:
+	int mapSize;
+	double *** deltas;
+	Neuron * neurons;
+	int numOfMaps;
+	int move;
+	Weights *data;
+	int numNeurons;
+	int x_count;
+	int y_count;
+	NeuronLayer(string t,int numberOfFeatureMaps, int featureMapSize,int numNeuronPerFeatureMap, int move1){
+		if(numberOfFeatureMaps !=0) {
+			numNeurons = numNeuronPerFeatureMap*numberOfFeatureMaps;
+		}else{
+			numNeurons = numNeuronPerFeatureMap;
+		}
+		mapSize = featureMapSize;
+		move = move1;
+		numOfMaps = numberOfFeatureMaps;
+		type = t;
+		if(type=="c" || type == "s"){
+			data = new Weights[numOfMaps]; 
+		}else{
+			data = new Weights[1];
+		}
+		x_count = 0;
+		y_count =0;
+		neurons = new Neuron[numNeurons];
+
+
+	}
+	NeuronLayer(){
+	}
+	void setType(string t){
+		type = t;
+	}
+	string getType(){
+		return type;
+	}
+
+};
+
+class CNN{
+public:
+	int numLayers;
+	ifstream config;
+	NeuronLayer *layers;
+	int **data;
+	struct image_data{
+		int subject_num;
+		int face_position;
+		int face_num;
+		float ** data;
+	};
+	image_data * input_data;
+	int numHidden;
+	string int_to_str(int i){
+		stringstream ss;
+		ss << i;
+		string str = ss.str();
+		return str;
+	}
+
+	double sigmoid(double x){
+		if(x>2.0) return .8f;
+		if(x<-2.0) return -.8f;
+		return tanh(x);
+	}
+
+	std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
+		std::stringstream ss(s);
+		std::string item;
+		while (std::getline(ss, item, delim)) {
+			elems.push_back(item);
+		}
+		return elems;
+	}
+
+	std::vector<std::string> split(const std::string &s,  char delim) {
+		std::vector<std::string> elems;
+		split(s, delim, elems);
+		return elems;
+	}
+	 float map(float value,  float istart, float istop, float ostart, float ostop) {
+    return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
+	}
+
+	CNN(char * filename, int numLayer){
+
+
+
+		numLayers = numLayer;
+		numHidden = numLayers-2;
+		string s;
+		vector<string> buffer;
+		int count = 0;
+		layers = new NeuronLayer[numLayer];
+		config.open(filename, ios::in);
+		char delim = ' ';
+		cout << "Reading config file...";
+		if(config.is_open()){
+			while(getline(config, s)){
+
+				// type numFeatureMaps featureMapSize numNeurons
+
+				if(s.c_str()[0] != '#'){
+					buffer = split(s, delim);
+
+					layers[count] = *(new NeuronLayer(buffer[0], atoi(buffer[1].c_str()), atoi(buffer[2].c_str()), atoi(buffer[3].c_str()), atoi(buffer[4].c_str())));
+					count++;
+				}
+			}
+		}
+		cout << "Done \n";
+		cout << "Initializing Network...";
+		buffer.empty();
+		//layers[1].initConnections(23, 28);
+
+		/*for(int j = 0; j<layers[1].numOfMaps; j++){
+		layers[1].data[j] = *(new Weights(layers[1].mapSize, layers[1].mapSize,layers[1].getType()));
+
+		}*/
+		struct boxPos{
+			int startX;
+			int startY;
+			int endX;
+			int endY;
+		};
+		layers[0].x_count = 23;
+		layers[0].y_count = 28;
+		for(int i = 1; i<numLayers; i++){
+
+			if(layers[i].getType() == "c" || layers[i].getType() == "s"){
+
+
+				int numFeatureMapsInPreviousLayer = layers[i-1].numOfMaps;
+				int numNeuronInPreviousLayer = layers[i-1].numNeurons/layers[i-1].numOfMaps;
+
+				boxPos pos;
+				int greatest = 0;
+				layers[i].x_count = 0;
+				layers[i].y_count = 0;
+				pos.endX = 0;
+				pos.endY = 0;
+				pos.startX = 0;
+				pos.startY = 0;
+				int featureMapCount = 0;
+				int move = layers[i].move;
+
+				int count = 0;
+				int yCount = 0;
+				int xCount = 0;
+				int numIterationsCompletedCount = 0;
+
+				int imageY = layers[i-1].y_count;
+				int imageX = layers[i-1].x_count;
+				int actualPos;
+				int pixelLocation = 0;
+				float ** data;
+				for(int set = 0; set<=(numFeatureMapsInPreviousLayer-1)*numNeuronInPreviousLayer; set+=numNeuronInPreviousLayer){
+					while (pos.endY < imageY){
+
+						if(set == 0) layers[i].x_count = 0;
+						if(set == 0) layers[i].y_count++;
+						pos.startY = (move)*(yCount);
+						pos.endY = yCount*(move)+layers[i].mapSize;
+
+
+						if(pos.endY > imageY){
+							pos.endY = imageY;
+							pos.startY = pos.endY-layers[i].mapSize;
+						}
+						while(pos.endX < imageX){
+
+							if(set == 0) layers[i].x_count++;
+							pos.startX = (move)*(xCount);
+							pos.endX = xCount*(move)+layers[i].mapSize;
+
+							if(pos.endX > imageX){
+								pos.endX = imageX;
+								pos.startX = pos.endX-layers[i].mapSize;
+							}
+
+							xCount++;
+							for (int k = pos.startY; k<pos.endY; k++){
+								for (int l = pos.startX; l<pos.endX; l++){
+									actualPos = (k)*imageX+l+set;
+
+									for (int m = 1; m< (layers[i].numNeurons); m+=(layers[i].numNeurons/layers[i].numOfMaps)){
+										if(numIterationsCompletedCount+m-1>0){
+											layers[i].neurons[numIterationsCompletedCount+m-1].setMapID(featureMapCount);
+											layers[i].neurons[numIterationsCompletedCount+m-1].giveInputConnection(actualPos);
+											layers[i].neurons[numIterationsCompletedCount+m-1].inputWeightID.push_back(pixelLocation);
+
+											layers[i-1].neurons[actualPos].outputWeightID.push_back(pixelLocation);
+											layers[i-1].neurons[actualPos].outputs.push_back(numIterationsCompletedCount+m-1);
+											count++;
+										}else{
+											layers[i-1].neurons[actualPos].outputWeightID.push_back(pixelLocation);
+											layers[i].neurons[0].setMapID(featureMapCount);
+											layers[i].neurons[0].giveInputConnection(actualPos);
+											layers[i].neurons[0].inputWeightID.push_back(pixelLocation);
+											layers[i-1].neurons[actualPos].outputs.push_back(0);
+											count++;
+										}
+										featureMapCount++;
+										pixelLocation++;
+										pixelLocation %= layers[i].mapSize*layers[i].mapSize;
+									}
+									featureMapCount=0;
+									count = 0;
+								}
+							}	
+							numIterationsCompletedCount++;
+						}
+						pos.startX = 0;
+						pos.endX = 0;
+						xCount = 0;
+						yCount++;
+
+
+					}
+					xCount = 0;
+
+					yCount = 0;
+
+					pos.startX = 0;
+					pos.startY = 0;
+					pos.endX = 0;
+
+					pos.endY = 0;
+					numIterationsCompletedCount = 0;
+					pixelLocation = 0;
+
+				}
+				layers[i].deltas = new double**[layers[i].numOfMaps];
+				for(int n = 0; n<layers[i].numOfMaps; n++){
+					layers[i].deltas[n] = new double * [layers[i].y_count];
+				}
+
+				for(int n = 0; n<layers[i].numOfMaps; n++){
+					for(int k = 0; k<layers[i].y_count; k++){
+						layers[i].deltas[n][k] = new double [layers[i].x_count];
+					}
+				}
+
+				for(int j = 0; j<layers[i].numOfMaps; j++){
+					if(layers[i].getType() == "c"){
+						int temp = 0, greatest_temp = 0;
+						for(int j = 0; j<layers[i].numNeurons; j++){
+							temp = layers[i].neurons[j].inputs.size();
+							if(temp>greatest_temp){
+								greatest_temp = temp;
+							}
+						}
+						layers[i].data[j] = *(new Weights(layers[i].mapSize, layers[i].mapSize,layers[i].getType(), greatest_temp));
+
+
+					}else{
+						//first two args dont matter
+						int temp = 0, greatest_temp = 0;
+						for(int j = 0; j<layers[i].numNeurons; j++){
+							temp = layers[i].neurons[j].inputs.size()/layers[i].numOfMaps;
+							if(temp>greatest_temp){
+								greatest_temp = temp;
+							}
+						}
+						layers[i].data[j] = *(new Weights(2, 2, layers[i].getType(), greatest_temp));
+
+					}
+				}
+			}
+			if(layers[i].getType() == "r"){
+				layers[i].data[0] = *(new Weights(layers[i].numNeurons, layers[i-1].numNeurons, layers[i].getType(), layers[i-1].numNeurons));
+
+			}
+		}
+
+		cout << "Done \n";
+
+	}
+	void reset(){
+		for(int i = 1; i<numLayers; i++){
+			for(int j = 0; j<layers[i].numNeurons; j++){
+				layers[i].neurons[j].output = 0.0;
+			}
+		}
+	}
+	void propagateSigmoid(){
+		reset();
+		int count = 0;
+		int xpos;
+		int ypos;
+		int connectionsID;
+		int mapID;
+		for (int i = 1; i<numLayers; i++){
+			if(layers[i].getType() == "c" || layers[i].getType() == "s"){
+
+				for (int j = 0; j<layers[i].numNeurons; j++){
+					//if(i==2)cout << layers[i].neurons[j].inputs.size() << "\n";
+					for(unsigned int k = 0; k<layers[i].neurons[j].inputs.size(); k++){
+						if(layers[i].getType() == "c"){
+
+							connectionsID = layers[i].neurons[j].inputs[k];
+							mapID = layers[i].neurons[j].featureMapID;
+							xpos = count%layers[i].mapSize;
+							ypos = count/layers[i].mapSize;
+							layers[i].neurons[j].output += layers[i-1].neurons[connectionsID].output*
+								layers[i].data[mapID].weights[xpos][ypos];
+							count++;
+							count %= layers[i].mapSize*layers[i].mapSize;
+						}else{
+							connectionsID = layers[i].neurons[j].inputs[k];
+
+							layers[i].neurons[j].output += layers[i-1].neurons[connectionsID].output;
+
+						}
+					}
+					count = 0;
+					if(layers[i].getType() == "s"){
+						//layers[i].neurons[j].output /= layers[i-1].mapSize*layers[i-1].mapSize;
+						//layers[i].neurons[j].output = sigmoid(layers[i].neurons[j].output);
+					}else{
+						layers[i].neurons[j].output += layers[i].neurons[j].bias;
+						layers[i].neurons[j].output = sigmoid(layers[i].neurons[j].output);
+					}
+
+				}
+
+			}else if (layers[i].getType() == "r"){
+				for (int j = 0; j<layers[i].numNeurons; j++){
+					for(int k = 0; k<layers[i-1].numNeurons; k++){
+
+						layers[i].neurons[j].output += layers[i].data[0].weights[j][k]*layers[i-1].neurons[k].output;
+					}
+					layers[i].neurons[j].output += layers[i].neurons[j].bias;
+					layers[i].neurons[j].output = sigmoid(layers[i].neurons[j].output);
+				}
+			}
+		}
+	}
+	void propagate(){
+
+		double sum = 0.0;
+		int count = 0;
+		int xpos;
+		int ypos;
+		int connectionsID;
+		int mapID;
+		for (int i = 1; i<numLayers; i++){
+			count = 0;
+			if(layers[i].getType() == "c"){
+				for (int j = 0; j<layers[i].numNeurons; j++){
+					//if(i==2)cout << layers[i].neurons[j].inputs.size() << "\n";
+					for(unsigned int k = 0; k<layers[i].neurons[j].inputs.size(); k++){
+
+
+						connectionsID = layers[i].neurons[j].inputs[k];
+						mapID = layers[i].neurons[j].featureMapID;
+						xpos = count/layers[i].mapSize;
+						ypos = count%layers[i].mapSize;
+						sum += layers[i-1].neurons[connectionsID].output*
+							layers[i].data[mapID].weights[xpos][ypos];
+						
+						count++;
+						count %= layers[i].mapSize*layers[i].mapSize;
+
+
+
+
+					}
+					count = 0;
+
+					if(layers[i].neurons[j].inputs.size() == 0)cout << " hi";
+
+					sum += layers[i].data[layers[i].neurons[j].featureMapID].bias;
+					layers[i].neurons[j].output = sigmoid(sum);
+
+					sum = 0;
+
+				}
+			}else if (layers[i].getType() == "s"){
+				for (int j = 0; j<layers[i].numNeurons; j++){
+					//if(i==2)cout << layers[i].neurons[j].inputs.size() << "\n";
+					for(unsigned int k = 0; k<layers[i].neurons[j].inputs.size(); k++){
+
+
+						connectionsID = layers[i].neurons[j].inputs[k];
+						if(layers[i-1].neurons[connectionsID].featureMapID == layers[i].neurons[j].featureMapID){
+
+							//cout << "hi";
+							connectionsID = layers[i].neurons[j].inputs[k];
+
+							sum += layers[i-1].neurons[connectionsID].output;
+
+						}
+
+
+					}
+
+					sum *= layers[i].data[layers[i].neurons[j].featureMapID].weights[0][0];
+
+					//add the bias
+					sum += layers[i].data[layers[i].neurons[j].featureMapID].bias;
+					layers[i].neurons[j].output = sigmoid(sum);
+					sum = 0;
+				}
+				
+
+			}else if (layers[i].getType() == "r"){
+				for (int j = 0; j<layers[i].numNeurons; j++){
+					for(int k = 0; k<layers[i-1].numNeurons; k++){
+
+						sum += layers[i].data[0].weights[j][k]*layers[i-1].neurons[k].output;
+					}
+
+					sum += layers[i].neurons[j].bias;
+					layers[i].neurons[j].output = sigmoid(sum);
+					sum = 0;
+				}
+			}
+		}
+	}
+
+	void backprop(float learningRate){
+
+	//	float learningRate = .01f;
+		int size = 0;
+
+		for(int z = 0; z<1; z++){
+			propagate();
+			for (int i = 0; i<layers[numLayers-1].numNeurons; i++){
+				layers[numLayers-1].neurons[i].errorFactor =layers[numLayers-1].neurons[i].expected-layers[numLayers-1].neurons[i].output;
+				cout << layers[numLayers-1].neurons[i].expected <<  " " << i << endl;
+				//deleted the layers[numLayers-1].neurons[i].output because it wasnt in the paper
+				layers[numLayers-1].neurons[i].delta =  (1-layers[numLayers-1].neurons[i].output *layers[numLayers-1].neurons[i].output)*(layers[numLayers-1].neurons[i].errorFactor) ;
+				layers[numLayers-1].neurons[i].bias += learningRate*layers[numLayers-1].neurons[i].delta * 1;
+			}
+
+
+
+			for(int m = 0; m<layers[numLayers-1].numNeurons; m++){
+				for(int k = 0; k<layers[numLayers-2].numNeurons; k++){
+					layers[numLayers-1].data[0].weights[m][k] += learningRate * layers[numLayers-2].neurons[k].output * layers[numLayers-1].neurons[m].delta * 1;
+
+				}
+			}
+
+			for (int n = numHidden; n>0; n--){
+				if(layers[n].getType() == "r"){
+					for(int i = 0; i<layers[n].numNeurons; i++){
+						for(int j = 0; j<layers[n+1].numNeurons; j++){
+							layers[n].neurons[i].errorFactor += layers[n+1].neurons[j].delta * layers[n+1].data[0].weights[j][i];
+
+						}
+					}
+					for(int i = 0; i<layers[n].numNeurons; i++){
+						layers[n].neurons[i].delta = (1-layers[n].neurons[i].output * layers[n].neurons[i].output) * layers[n].neurons[i].errorFactor *1;
+						layers[n].neurons[i].bias += learningRate*layers[n].neurons[i].delta*1;
+					}
+
+					for(int m = 0; m<layers[n].numNeurons; m++){
+						for(int k = 0; k<layers[n-1].numNeurons; k++){
+
+							layers[n].data[0].weights[m][k] += learningRate * layers[n-1].neurons[k].output * layers[n].neurons[m].delta *1;
+
+						}
+					}
+				}else if (layers[n].getType() == "c"){
+					if(layers[n+1].getType() == "s"){
+
+						float ** outputs;
+						outputs = new float *[layers[n].y_count];
+						for(int i = 0; i<layers[n].y_count; i++){
+							outputs[i] = new float[layers[n].x_count];
+						}
+						int offset;
+						int actualPos;
+						double ** derivative;
+						derivative = new double*[layers[n].y_count];
+						for(int i = 0; i<layers[n].y_count; i++){
+							derivative[i] = new double [layers[n].x_count];
+						}
+						int numNeuron = layers[n].numNeurons/layers[n].numOfMaps;
+						for(int i = 0; i<layers[n].numOfMaps; i++){
+							offset = i*numNeuron;
+
+							//this is where i left off. to continue, i need to implement the gradient calculator for a subsampling layer
+							//i also need to set outputs equal to delta, but take care to make sure i dont get any errors with pointers.
+
+
+							upsample(layers[n+1].deltas[i], layers[n+1].x_count, layers[n+1].y_count, 2, outputs);
+
+
+
+							for(int j = 0; j<layers[n].y_count; j++){
+								for(int k = 0; k<layers[n].x_count; k++){
+									actualPos = (j)*layers[n].x_count+k+offset;
+									derivative[j][k] =(1-  layers[n].neurons[actualPos].output * layers[n].neurons[actualPos].output);
+								}
+							}
+
+							matrix_matrix_multiply(layers[n].x_count, layers[n].y_count, outputs, derivative);
+
+							multiply(layers[n+1].data[i].weights[0][0], outputs, layers[n].x_count, layers[n].y_count);
+
+							for(int j = 0; j<layers[n].y_count; j++){
+								for(int k = 0; k<layers[n].x_count; k++){
+									layers[n].deltas[i][j][k] = outputs[j][k];
+								}
+							}
+
+
+							for(int j = 0; j<layers[n].y_count; j++){
+								for(int k = 0; k<layers[n].x_count; k++){
+									layers[n].data[i].bias += layers[n].deltas[i][j][k]*learningRate;
+
+								}
+							}
+
+						}
+						int count = 0;
+
+						for(int i = 0; i<layers[n].numOfMaps; i++){
+							for(int j = 0; j<layers[n].y_count; j++){
+								for(int k = 0; k<layers[n].x_count; k++){
+									layers[n].neurons[count].delta = layers[n].deltas[i][j][k];
+									count++;
+								}
+							}
+						}
+
+						int deltas_xpos = 0, deltas_ypos = 0, weight = 0, size= 0, previousLayerID, mapID, ID, test;
+						size = layers[n].mapSize;
+						for(int i = 0; i<layers[n].numNeurons; i++){
+
+							mapID = layers[n].neurons[i].featureMapID;
+							ID = i-(mapID*(layers[n].numNeurons/layers[n].numOfMaps));
+							deltas_xpos = ID%layers[n].x_count;
+							deltas_ypos = ID/layers[n].y_count;
+
+							for(int j = 0; j<layers[n].neurons[i].inputs.size(); j++){
+								previousLayerID = layers[n].neurons[i].inputs[j];
+								layers[n].data[mapID].weights[weight/size][weight%size] += learningRate * layers[n].neurons[i].delta*layers[n-1].neurons[previousLayerID].output;
+								weight++;
+								weight %= size*size;
+							}
+						}
+					}
+				}else if(layers[n].getType() == "s"){
+					if(layers[n+1].getType() == "c"){
+						int nextLayerID, weight = 0, size = layers[n+1].mapSize, previousLayerID;
+						for(int i = 0; i<layers[n].numNeurons; i++){
+							for(int j = 0; j<layers[n].neurons[i].outputs.size(); j++){
+								nextLayerID = layers[n].neurons[i].outputs[j];
+								layers[n].neurons[i].errorFactor += layers[n+1].neurons[nextLayerID].delta * layers[n+1].data[layers[n+1].neurons[nextLayerID].featureMapID].weights[weight/size][weight%size];
+								weight++;
+								weight %= size*size;
+
+							}
+						}
+						for(int i = 0; i<layers[n].numNeurons; i++){
+							layers[n].neurons[i].delta = (1-layers[n].neurons[i].output*layers[n].neurons[i].output) * layers[n].neurons[i].errorFactor;
+							layers[n].data[layers[n].neurons[i].featureMapID].bias += learningRate*layers[n].neurons[i].delta*1;
+						}
+
+						for(int i = 0; i<layers[n].numNeurons; i++){
+							for(int j = 0;j<layers[n].neurons[i].inputs.size(); j++){
+								previousLayerID = layers[n].neurons[i].inputs[j];
+								layers[n].data[layers[n].neurons[i].featureMapID].weights[0][0] += layers[n].neurons[j].delta*learningRate*layers[n-1].neurons[previousLayerID].output;
+							}
+						}
+						int count = 0;
+						for(int k = 0; k<layers[n].numOfMaps; k++){
+							for(int i = 0; i<layers[n].y_count; i++){
+								for(int j = 0; j<layers[n].x_count; j++){
+									layers[n].deltas[k][i][j] = layers[n].neurons[count].delta;
+									count++;
+								}
+							}
+						}
+
+
+						//	for(int i = 0; i<layers[n]
+					}else if(layers[n+1].getType() == "r"){
+						int previousLayerID;
+						for(int i = 0; i<layers[n].numNeurons; i++){
+							for(int j = 0; j<layers[n+1].numNeurons; j++){
+								layers[n].neurons[i].errorFactor += layers[n+1].neurons[j].delta * layers[n+1].data[0].weights[j][i];
+
+							}
+						}
+						for(int i = 0; i<layers[n].numNeurons; i++){
+							layers[n].neurons[i].delta =  (1-layers[n].neurons[i].output *layers[n].neurons[i].output) * layers[n].neurons[i].errorFactor;
+							layers[n].data[layers[n].neurons[i].featureMapID].bias += learningRate*layers[n].neurons[i].delta;
+						}
+						for(int i = 0; i<layers[n].numNeurons; i++){
+							for(int j = 0;j<layers[n].neurons[i].inputs.size(); j++){
+								previousLayerID = layers[n].neurons[i].inputs[j];
+								layers[n].data[layers[n].neurons[i].featureMapID].weights[0][0] += layers[n].neurons[j].delta*learningRate*layers[n-1].neurons[previousLayerID].output;
+							}
+						}
+						int count = 0;
+						for(int k = 0; k<layers[n].numOfMaps; k++){
+							for(int i = 0; i<layers[n].y_count; i++){
+								for(int j = 0; j<layers[n].x_count; j++){
+									layers[n].deltas[k][i][j] = layers[n].neurons[count].delta;
+									count++;
+								}
+							}
+						}
+					}
+
+				}
+
+				//cout << learningRate << endl;
+			}
+		}
+
+	}
+
+
+
+	void readData(int numSamples){
+		input_data = new image_data[numSamples*400*3];
+		string subject_id = "";
+		string face_position_num = "";
+		string face_num = "";
+		string final = "";
+		BMP image;
+		int count = 0;
+		for(int i = 1; i<=numSamples; i++){
+			subject_id = "s"+int_to_str(i);
+
+			for(int j = 1; j<=10; j++){
+				face_position_num = int_to_str(j);
+				for(int k = 0; k<3; k++){
+					face_num = int_to_str(k);
+					final = "..\\images\\"+subject_id+"\\"+face_position_num+"\\"+face_num+".bmp";
+					image.ReadFromFile(final.c_str());
+					//face_position is the orientation ID of the face
+					input_data[count].face_position = j;
+					//face_num is which of the 3 faces it is
+					input_data[count].face_num = k;
+					input_data[count].subject_num = i;
+					input_data[count].data = new float*[23];
+					for(int l = 0; l<23; l++){
+						input_data[count].data[l] = new float[28];
+					}
+					for(int l = 0; l< 23; l++){
+						for(int m = 0; m<28; m++){
+							input_data[count].data[l][m] = map((((float)image(l, m)->Red)/255), 0, 1, -1, 1);
+						}
+					}
+					count++;
+				}
+			}
+		}
+
+	}
+
+	void loadImage(int num){
+		int count = 0;
+		for(int k = 0; k<23; k++)
+		{
+			for(int l = 0; l<28; l++)
+			{
+				layers[0].neurons[count].output = input_data[num].data[k][l];
+				count++;
+			}
+		}
+		for(int k = 0; k<23; k++)
+		{
+			for(int l = 0; l<28; l++)
+			{
+				layers[0].neurons[count].output = input_data[num+1].data[k][l];
+				count++;
+			}
+		}
+		for(int k = 0; k<23; k++)
+		{
+			for(int l = 0; l<28; l++)
+			{
+
+				layers[0].neurons[count].output = input_data[num+2].data[k][l];
+				count++;
+			}
+		}
+	}
+
+
+
+	void train(int num_epochs){
+
+		int size = 0;
+		int id = 0;
+		int flip_flop = 1;
+		int numIterations =30;
+		//int num = 0;
+		float learningRate = .02f;
+		for(int z = 0; z<num_epochs; z++){
+			/*
+			num += 30*flip_flop;
+			flip_flop *= -1;
+			if(num>numIterations){
+			num = 0;
+			flip_flop = 1;
+			}
+
+			if(flip_flop>0){
+			num += 3;
+			}
+			*/
+
+			//for(int j = 0; j<numIterations; j+=3){
+			flip_flop*=-1;
+			if(flip_flop == 1){
+			id = (rand() % (numIterations/3))*3;
+			}else{
+			id=	(rand() % (numIterations/3))*3+30;
+				}
+			loadImage(id);
+			propagate();
+
+			if(id>=30){
+
+				layers[numLayers-1].neurons[0].expected = -.7f;
+			}else{
+				layers[numLayers-1].neurons[0].expected = .7f;
+			}
+			cout << z << " " << layers[numLayers-1].neurons[0].output<< " ID-> " << id << endl;
+			if((id>=30 && !(layers[numLayers-1].neurons[0].output < .3)) || (id<30 && !(layers[numLayers-1].neurons[0].output > .7))){
+				backprop(learningRate);
+
+				layers[numLayers-1].neurons[input_data[id].subject_num-1].expected = 0.3f;
+				//propagate();
+
+			}
+			learningRate += -learningRate/(num_epochs);
+			layers[numLayers-1].neurons[input_data[id].subject_num-1].expected = 0.3f;
+		}
+
+
+	}
+	/*
+	int testConnections(int imageX, int imageY){
+	struct boxPos{
+	int startX;
+	int startY;
+	int endX;
+	int endY;
+	};
+	boxPos pos;
+
+	int x_count = 0;
+	int y_count = 0;
+	pos.endX = 0;
+	pos.endY = 0;
+	pos.startX = 0;
+	pos.startY = 0;
+	int featureMapCount = 0;
+	int move = 1;
+	int mapSize = 1;
+	int count = 0;
+	int yCount = 0;
+	int xCount = 0;
+	int numIterationsCompletedCount = 0;
+
+	int actualPos;
+	int pixelLocation = 0;
+	while (pos.endY < imageY){
+
+	x_count = 0;
+	if (yCount  ==0){
+	pos.startY = 0;
+	pos.endY = mapSize;
+
+	}else if(yCount == 1) {
+	pos.startY = (move);
+	pos.endY = move+mapSize;
+	}else{
+	pos.startY = (move)*(yCount);
+	pos.endY = yCount*(move)+mapSize;
+	}
+
+	if(pos.endY > imageY){
+	pos.endY = imageY;
+	pos.startY = pos.endY-mapSize;
+	}
+	while(pos.endX < imageX){
+
+	if (xCount ==0) {
+	pos.startX = 0;
+	pos.endX = mapSize;
+	}else if (xCount ==1) {
+	pos.startX = (move);
+	pos.endX = (move)+mapSize;
+	}else{
+	pos.startX = (move)*(xCount);
+	pos.endX = xCount*(move)+mapSize;
+	}
+	if(pos.endX > imageX){
+	pos.endX = imageX;
+	pos.startX = pos.endX-mapSize;
+	}
+
+	xCount++;
+	for (int k = pos.startY; k<pos.endY; k++){
+	for (int l = pos.startX; l<pos.endX; l++){
+	actualPos = (k)*imageX+l;
+
+
+	featureMapCount = 0;
+	count = 0;
+	pixelLocation++;
+	}
+
+	}	
+	numIterationsCompletedCount++;
+	pixelLocation = 0;
+	x_count++;
+	}
+	pos.startX = 0;
+	pos.endX = 0;
+	xCount = 0;
+	yCount++;
+	y_count++;
+	}
+
+	cout << x_count << "  " << y_count << endl;
+
+	return numIterationsCompletedCount;
+	}
+
+	*/
+	void multiply(float a, float ** b, int size_x, int size_y){
+
+		for(int i = 0; i<size_y; i++){
+			for(int j = 0;j<size_x; j++){
+				b[i][j] = b[i][j]*a;
+			}
+		}
+
+	}
+	float ** get_array(int size_x, int size_y, int pos, int n, int imageX, int offset){
+		float** result;
+		result = new float * [size_y];
+		for(int i = 0; i<size_x; i++){
+			result[i] = new float[ size_x];
+		}
+		int actualPos;
+		int xpos;
+		int ypos;
+		for(int i = 0; i< size_x; i++){
+			for(int j = 0; j< size_y; j++){
+				xpos = (pos%imageX)+j;
+				ypos = (pos/imageX)+i;
+				actualPos = (ypos)*imageX+xpos+offset;
+				result[i][j] = layers[n].neurons[actualPos].output;
+
+			}
+		}
+		return result;
+	}
+	float  convolute(int x, int y, float ** conv_a, float ** conv_b){
+		float result= 0.0f;
+
+		for(int i = 0; i<x; i++){
+			for(int j = 0; j<y; j++){
+				result += conv_a[i][j]*conv_b[i][j];
+			}
+		}
+		return result;
+
+	}
+
+	void upsample(double ** delta, int size_x, int size_y, int factor, float**outputs){
+		//size_x is col, size_y is row
+		double** results;
+
+		//cout << size_y <<  " " << size_x << " upsample" << endl;
+		results = new double * [size_y*2];
+		for(int i = 0; i<size_y*2; i++){
+			results[i] = new double[size_x*2];
+		}
+
+		int xpos = -1;
+		int ypos = -1;
+
+		for(int i = 0; i<size_y*2; i++){
+			if(i%factor == 0){
+				ypos++;
+			}
+			for(int j = 0; j<size_x*2; j++){
+				if(j%factor == 0){
+					xpos++;
+				}
+
+				results[i][j] = delta[ypos][xpos];
+
+
+			}
+			xpos = -1;
+
+
+		}
+
+		for(int i = 0; i<size_y*2-1; i++){
+			for(int j = 0; j<size_x*2; j++){
+
+
+				outputs[i][j] = results[i][j];
+
+			}
+		}
+
+
+
+	}
+
+	void matrix_matrix_multiply(int x_count, int y_count, float ** conv_a, double ** conv_b){
+
+
+		for(int i = 0; i<y_count; i++){
+			for(int j = 0; j<x_count; j++){
+				conv_a[i][j] = conv_a[i][j]*conv_b[i][j];
+			}
+		}
+
+
+	}
+
+
+};	
+#endif

@@ -1,0 +1,156 @@
+#ifndef SOM_H
+#define SOM_H
+#include <random>
+#include <time.h>
+#include <math.h>
+using namespace std;
+class neuron{
+public:
+	float * weights;
+	int numWeights;
+	int X;
+	int Y;
+	neuron(){
+		numWeights = 0;
+
+	}
+	void initWeights(int number_of_weights){
+		numWeights = number_of_weights;
+
+		weights = new float[numWeights];
+		for (int i = 0; i<numWeights; i++){
+			weights[i] = ((float)rand()/RAND_MAX);
+		}
+	}
+};
+
+class SOM{
+private:
+
+public:
+	neuron ** neurons;
+
+	int weight_dim;
+	float *input;
+	int mapWidth;
+	int mapHeight;
+	int numIterations;
+	float initLearningRate;
+	SOM(int x, int y, int dim){
+		srand(time(NULL));
+		mapWidth = x;
+		mapHeight= y;
+		weight_dim = dim;
+		numIterations =700;
+		initLearningRate= .1f;
+		neurons = new neuron*[x];
+		for (int i = 0; i<x; i++){
+			neurons[i] = new neuron[y];
+		}
+		for (int i = 0; i<x; i++){
+			for(int j = 0; j<y; j++){
+				neurons[i][j].initWeights(dim);
+				neurons[i][j].X = i;
+				neurons[i][j].Y = j;
+			}
+		}
+
+		input = new float[dim];
+	}
+
+	void initInputVector(float * vector){
+		for (int i = 0; i<weight_dim; i++){
+			input[i] = vector[i];
+		}
+	}
+
+	float calcDist(float *vec1, float *vec2){
+		float distance = 0.0f;
+		for (int i = 0; i<weight_dim; i++){
+
+			distance += (abs(vec1[i]-vec2[i]))*(abs(vec1[i]-vec2[i]));
+		}
+		return sqrt(distance);
+	}
+
+	float calcDistBetweenNodes(neuron n1, neuron n2){
+
+		float temp = (float)((n1.X-n2.X)*(n1.X-n2.X)+(n1.Y-n2.Y)*(n1.Y-n2.Y));
+		return sqrt(temp);
+	}
+
+	float mapRadius(int time){
+
+		float initialMapRadius = max(mapWidth, mapHeight)/2;
+		float timeConstant = numIterations/log(initialMapRadius);
+		float radius = initialMapRadius*exp(-(time/timeConstant));
+		return radius;
+	}	
+
+	neuron findBMU(float * data){
+		float leastDistance = 9999.0f;
+		float currentDistance = 0.0f;
+		neuron winner;
+		for (int i = 0; i<mapWidth; i++){
+			for(int j = 0; j<mapHeight; j++){
+				currentDistance = calcDist(neurons[i][j].weights, data);
+
+				if(currentDistance<leastDistance){
+					winner = neurons[i][j];
+
+					leastDistance = currentDistance;
+					
+				}
+			}
+		}
+		return winner;
+	}
+
+	float theta(float distanceBetweenNodes, float radius){
+		return exp(-(distanceBetweenNodes*distanceBetweenNodes)/(2*radius*radius));
+	}
+
+	double learningRate(int time){
+		float iterations = (float)numIterations;
+		double rate = initLearningRate*exp((-(time/iterations)));
+
+		return rate;
+	}
+
+	void train(float ** data, int numSamples){
+		neuron winningNeuron;
+		for (int x = 0; x<numSamples; x++){
+			 winningNeuron = findBMU(data[x]);
+			for(int y = 0; y<numIterations; y++){
+				int winX = winningNeuron.X;
+				int winY = winningNeuron.Y;
+				float neighboorhoodRadius = mapRadius(y);
+				float rate = learningRate(y);
+				for(int i = 0; i<mapWidth; i++){
+					for(int j = 0; j<mapHeight; j++){
+						float distance = calcDistBetweenNodes(neurons[i][j], neurons[winX][winY]);
+						if(distance<neighboorhoodRadius){
+							float coeff = theta(distance, neighboorhoodRadius)*rate;
+							float * newWeight;
+							newWeight = new float [weight_dim];
+							for (int w = 0; w<weight_dim; w++){
+								float diff = data[x][w]-neurons[i][j].weights[w];
+								newWeight[w] =diff*coeff;
+							}
+							for (int w = 0; w<weight_dim; w++){
+								neurons[i][j].weights[w]+=newWeight[w];
+							}
+						}
+					}
+				}
+			}
+			cout << winningNeuron.X << "   " << winningNeuron.Y << endl;
+		}
+	}
+
+
+	
+
+}; 
+
+#endif 

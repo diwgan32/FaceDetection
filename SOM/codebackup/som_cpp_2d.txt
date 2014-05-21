@@ -1,0 +1,96 @@
+// SOM.cpp : Defines the entry point for the console application.
+//
+
+#include "stdafx.h"
+using namespace std;
+
+int main(int argc, char* argv[])
+{
+	BMP final;
+	SOM network(100, 100, 3);
+	final.SetSize(100, 100);
+	for (int i = 0; i<network.mapWidth; i++){
+		for(int j =0; j<network.mapHeight; j++){
+			RGBApixel temp;
+
+			temp.Red = network.neurons[i][j].weights[0]*256;
+			temp.Blue = network.neurons[i][j].weights[1]*256;
+			temp.Green = network.neurons[i][j].weights[2]*256;
+			temp.Alpha = 0;
+			final.SetPixel(i, j, temp);
+		}
+	}
+	final.WriteToFile("first.bmp");
+	float ** data;
+	data = new float*[9];
+	for (int i = 0; i<9; i++){
+		data[i] = new float[3];
+	}
+
+	ifstream dat;
+	dat.open("data.txt");
+	for (int i = 0; i<9; i++){
+		float red;
+		dat>>red;
+
+		float blue;
+		dat>>blue;
+		float green;
+		dat>>green;
+		float magnitude = sqrt(red*red+green*green+blue*blue);
+		if(magnitude != 0){
+			data[i][0] = red/magnitude;
+			data[i][1] = blue/magnitude;
+			data[i][2] = green/magnitude;
+		}
+		else{
+			data[i][0] = 0;
+			data[i][1] = 0;
+			data[i][2] = 0;
+		}
+	}
+	network.train(data, 9);
+
+
+	for (int i = 0; i<network.mapWidth; i++){
+		for(int j =0; j<network.mapHeight; j++){
+			RGBApixel temp;
+			temp.Red = network.neurons[i][j].weights[0]*256;
+			temp.Blue = network.neurons[i][j].weights[1]*256;
+			temp.Green = network.neurons[i][j].weights[2]*256;
+			temp.Alpha = 0;
+			final.SetPixel(i, j, temp);
+		}
+	}
+	final.WriteToFile("final.bmp");
+
+
+	return 0;
+}
+
+/*for (int i=0; i<network.mapWidth; i++){
+for(int j = 0; j<network.mapHeight; j++){
+for(int k = 0; k<network.weight_dim; k++){
+cout << setprecision(2) << network.neurons[i][j].weights[k] << " ";
+
+}
+cout << " ";
+}
+cout << endl;
+}
+
+cout << endl;
+cout << endl;
+/*for (int i = 0; i<network.numIterations; i++){
+cout << network.learningRate(i) <<"    "<<network.mapRadius(i) << endl;
+}*/
+/*for (int i=0; i<network.mapWidth; i++){
+for(int j = 0; j<network.mapHeight; j++){
+for(int k = 0; k<network.weight_dim; k++){
+cout << setprecision(2) << network.neurons[i][j].weights[k] << " ";
+
+}
+cout << " ";
+}
+cout << endl;
+}*/

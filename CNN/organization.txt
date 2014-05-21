@@ -1,0 +1,6 @@
+Dimensions	MapSize		Move
+23x28		3		1
+22x27		3		2
+11x13		2		1
+10x12		3		2
+5x6		11  13
